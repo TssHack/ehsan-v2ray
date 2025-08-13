@@ -48,7 +48,7 @@ async function getMergedProxies() {
   return lines.join("\n");
 }
 
-app.get("/", async (req, res) => {
+app.get("/ehsan", async (req, res) => {
   try {
     const output = await getMergedProxies();
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
