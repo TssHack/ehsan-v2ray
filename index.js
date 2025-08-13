@@ -1,4 +1,3 @@
-import express from "express";
 import fetch from "node-fetch"; // اگر Node 18+ داری، میتونی حذفش کنی
 import dns from "dns/promises";
 
