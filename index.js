@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import dns from "dns/promises";
 
 const app = express();
-const UPSTREAM_URL = "https://ehsan.fazlinejadeh.workers.dev/EHSAN?limit=12";
+const UPSTREAM_URL = "https://ehsan.fazlinejadeh.workers.dev/arista?limit=12";
 const CHANGE_PROFILE_TITLE = true;
 
 // فقط یک فونت ثابت
