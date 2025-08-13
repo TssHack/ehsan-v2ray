@@ -6,16 +6,16 @@ const app = express();
 const UPSTREAM_URL = "https://ehsan.fazlinejadeh.workers.dev/EHSAN?limit=12";
 const CHANGE_PROFILE_TITLE = true;
 
-‎// فقط یک فونت ثابت
+// فقط یک فونت ثابت
 const STYLED_NAME = "𝙀𝙃𝙎𝘼𝙉";
 
-‎// بهبود Cache برای پرچم‌ها
+// بهبود Cache برای پرچم‌ها
 const flagCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 دقیقه
 
-‎// گرفتن پرچم کشور با کش بهتر
+// گرفتن پرچم کشور با کش بهتر
 async function getCountryFlag(host) {
-‎  // چک کردن کش
+  // چک کردن کش
   const cached = flagCache.get(host);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.flag;
@@ -24,7 +24,7 @@ async function getCountryFlag(host) {
   try {
     let ip;
     
-‎    // بهتر شدن تشخیص IP
+    // بهتر شدن تشخیص IP
     if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) {
       ip = host;
     } else {
@@ -54,7 +54,7 @@ async function getCountryFlag(host) {
     const countryCode = data.country_code;
     
     if (countryCode) {
-‎      // تبدیل کد کشور به emoji پرچم
+      // تبدیل کد کشور به emoji پرچم
       const flag = countryCode
         .toUpperCase()
         .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
@@ -72,7 +72,7 @@ async function getCountryFlag(host) {
   }
 }
 
-‎// پاک کردن کش قدیمی
+// پاک کردن کش قدیمی
 setInterval(() => {
   const now = Date.now();
   for (const [host, data] of flagCache.entries()) {
@@ -114,10 +114,10 @@ app.get("/ehsan", async (req, res) => {
     let text = await response.text();
     console.log(`📦 Received ${text.length} characters`);
     
-‎    // نرمال‌سازی خطوط
+    // نرمال‌سازی خطوط
     text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-‎    // تغییر profile-title
+    // تغییر profile-title
     if (CHANGE_PROFILE_TITLE) {
       const encodedName = Buffer.from(STYLED_NAME, "utf8").toString("base64");
       const originalText = text;
@@ -132,7 +132,7 @@ app.get("/ehsan", async (req, res) => {
       }
     }
 
-‎    // بهبود regex برای VLESS
+    // بهبود regex برای VLESS
     const vlessRegex = /(vless:\/\/[a-f0-9-]+@[^#\n\r]+)(?:#[^\n\r]*)?/gi;
     const matches = [...text.matchAll(vlessRegex)];
     
@@ -146,7 +146,7 @@ app.get("/ehsan", async (req, res) => {
         .send(text);
     }
 
-‎    // پردازش موثرتر لینک‌ها
+    // پردازش موثرتر لینک‌ها
     const processedConfigs = await Promise.allSettled(
       matches.map(async (match, index) => {
         const baseConfig = match[1];
@@ -169,7 +169,7 @@ app.get("/ehsan", async (req, res) => {
       })
     );
 
-‎    // جایگزینی با نتایج
+    // جایگزینی با نتایج
     let configIndex = 0;
     text = text.replace(vlessRegex, () => {
       const result = processedConfigs[configIndex++];
@@ -211,7 +211,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-‎// صفحه اصلی
+// صفحه اصلی
 app.get("/", (req, res) => {
   res.type("text/plain; charset=utf-8").send(
     `🚀 VLESS Proxy Server - ONLINE\n\n` +
