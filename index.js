@@ -1,196 +1,256 @@
 import express from "express";
-import fetch from "node-fetch"; // اگر Node 18+ داری، میتونی حذفش کنی
+import fetch from "node-fetch";
 import dns from "dns/promises";
 
 const app = express();
-const UPSTREAM_URL = "https://ehsan.fazlinejadeh.workers.dev/arista?limit=12";
+const UPSTREAM_URL = "https://ehsan.fazlinejadeh.workers.dev/EHSAN?limit=12";
 const CHANGE_PROFILE_TITLE = true;
 
-// فونت‌های یونیکد برای EHSAN
-const FONT_VARIANTS = {
-  bold: "𝐄𝐇𝐒𝐀𝐍",
-  italic: "𝐸𝐻𝑆𝐴𝑁", 
-  script: "𝒪𝐻𝒮𝒜𝒩", // O به جای E چون E script نداره
-  fraktur: "𝔈𝔥𝔬𝔞𝔫", // تقریبی
-  monospace: "𝙀𝙃𝙎𝘼𝙉",
-  double: "𝔼ℍ𝕊𝔸ℕ"
-};
+‎// فقط یک فونت ثابت
+const STYLED_NAME = "𝙀𝙃𝙎𝘼𝙉";
 
-// انتخاب تصادفی فونت
-function getRandomFont() {
-  const fonts = Object.values(FONT_VARIANTS);
-  return fonts[Math.floor(Math.random() * fonts.length)];
-}
+‎// بهبود Cache برای پرچم‌ها
+const flagCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 دقیقه
 
-// گرفتن پرچم کشور از طریق IP
+‎// گرفتن پرچم کشور با کش بهتر
 async function getCountryFlag(host) {
+‎  // چک کردن کش
+  const cached = flagCache.get(host);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.flag;
+  }
+
   try {
-    // اگر host آی‌پی نیست، DNS lookup کن
     let ip;
-    if (/^[0-9.]+$/.test(host)) {
+    
+‎    // بهتر شدن تشخیص IP
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) {
       ip = host;
     } else {
-      const result = await dns.lookup(host);
+      const result = await dns.lookup(host, { family: 4 });
       ip = result.address;
     }
 
-    const resp = await fetch(`https://ipwho.is/${ip}`, {
-      timeout: 5000, // 5 second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const resp = await fetch(`https://ipapi.co/${ip}/json/`, {
+      signal: controller.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; FlagLookup/1.0)'
       }
     });
     
+    clearTimeout(timeoutId);
+
     if (!resp.ok) {
       console.warn(`Flag lookup failed for ${ip}: ${resp.status}`);
+      flagCache.set(host, { flag: "", timestamp: Date.now() });
       return "";
     }
     
     const data = await resp.json();
+    const countryCode = data.country_code;
     
-    if (data.success && data.flag?.emoji) {
-      return data.flag.emoji;
+    if (countryCode) {
+‎      // تبدیل کد کشور به emoji پرچم
+      const flag = countryCode
+        .toUpperCase()
+        .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+      
+      flagCache.set(host, { flag, timestamp: Date.now() });
+      return flag;
     } else {
-      console.warn(`No flag data for ${ip}`);
+      flagCache.set(host, { flag: "", timestamp: Date.now() });
       return "";
     }
   } catch (error) {
     console.warn(`Error getting flag for ${host}:`, error.message);
+    flagCache.set(host, { flag: "", timestamp: Date.now() });
     return "";
   }
 }
 
-app.get("/arista", async (req, res) => {
-  console.log("Received request to /arista");
+‎// پاک کردن کش قدیمی
+setInterval(() => {
+  const now = Date.now();
+  for (const [host, data] of flagCache.entries()) {
+    if (now - data.timestamp > CACHE_TTL) {
+      flagCache.delete(host);
+    }
+  }
+}, CACHE_TTL);
+
+app.get("/ehsan", async (req, res) => {
+  console.log("📡 Processing VLESS request...");
   
   try {
-    console.log("Fetching from upstream...");
-    const r = await fetch(UPSTREAM_URL, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(UPSTREAM_URL, {
+      signal: controller.signal,
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "accept": "text/plain,*/*",
-        "accept-language": "en-US,en;q=0.9",
-      },
-      timeout: 10000, // 10 second timeout
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/plain,*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache"
+      }
     });
 
-    if (!r.ok) {
-      console.error(`Upstream returned status ${r.status}`);
-      const txt = await r.text().catch(() => "");
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`❌ Upstream error: ${response.status}`);
+      const errorText = await response.text().catch(() => "");
       return res
-        .status(r.status)
+        .status(response.status)
         .type("text/plain; charset=utf-8")
-        .send(txt || `Upstream error: ${r.status}`);
+        .send(errorText || `Upstream error: ${response.status}`);
     }
 
-    let text = await r.text();
-    console.log(`Received ${text.length} characters from upstream`);
+    let text = await response.text();
+    console.log(`📦 Received ${text.length} characters`);
     
-    // نرمال کردن line endings
+‎    // نرمال‌سازی خطوط
     text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-    // تغییر profile-title
+‎    // تغییر profile-title
     if (CHANGE_PROFILE_TITLE) {
-      const styledEhsan = getRandomFont();
-      const b64Ehsan = Buffer.from(styledEhsan, "utf8").toString("base64");
-      const oldText = text;
+      const encodedName = Buffer.from(STYLED_NAME, "utf8").toString("base64");
+      const originalText = text;
+      
       text = text.replace(
-        /(\/\/profile-title:\s*base64:)[A-Za-z0-9+/=]+/,
-        `$1${b64Ehsan}`
+        /(\/\/profile-title:\s*base64:)[A-Za-z0-9+/=]+/g,
+        `$1${encodedName}`
       );
       
-      if (text !== oldText) {
-        console.log("Profile title updated with styled font");
-      } else {
-        console.log("No profile-title found to update");
+      if (text !== originalText) {
+        console.log("✨ Profile title updated");
       }
     }
 
-    // پیدا کردن همه لینک‌های VLESS
-    const vlessRegex = /(vless:\/\/[^#\n\r]+)(?:#[^\n\r]*)?/g;
-    const matches = Array.from(text.matchAll(vlessRegex));
+‎    // بهبود regex برای VLESS
+    const vlessRegex = /(vless:\/\/[a-f0-9-]+@[^#\n\r]+)(?:#[^\n\r]*)?/gi;
+    const matches = [...text.matchAll(vlessRegex)];
     
-    console.log(`Found ${matches.length} VLESS links`);
+    console.log(`🔍 Found ${matches.length} VLESS configs`);
 
     if (matches.length === 0) {
-      console.log("No VLESS links found, returning original text");
+      console.log("⚠️ No VLESS configs found");
       return res
-        .setHeader("content-type", "text/plain; charset=utf-8")
+        .setHeader("Content-Type", "text/plain; charset=utf-8")
+        .setHeader("Cache-Control", "no-cache, no-store, must-revalidate")
         .send(text);
     }
 
-    // پردازش همزمان همه لینک‌ها
-    const processedLinks = await Promise.all(
+‎    // پردازش موثرتر لینک‌ها
+    const processedConfigs = await Promise.allSettled(
       matches.map(async (match, index) => {
-        const baseLink = match[1];
-        const hostMatch = baseLink.match(/@([^:]+):\d+/);
+        const baseConfig = match[1];
+        const hostMatch = baseConfig.match(/@([^:]+):(\d+)/);
         
         if (!hostMatch) {
-          console.warn(`No host found in link ${index + 1}`);
-          const styledEhsan = getRandomFont();
-          return `${baseLink}#${styledEhsan}`;
+          console.warn(`⚠️ Invalid config format at index ${index + 1}`);
+          return `${baseConfig}#${STYLED_NAME}`;
         }
 
-        const host = hostMatch[1];
-        console.log(`Getting flag for host: ${host}`);
+        const [, host] = hostMatch;
         
-        const flag = await getCountryFlag(host);
-        const styledEhsan = getRandomFont();
-        
-        if (flag) {
-          return `${baseLink}#${styledEhsan} ${flag}`;
-        } else {
-          return `${baseLink}#${styledEhsan}`;
+        try {
+          const flag = await getCountryFlag(host);
+          return flag ? `${baseConfig}#${STYLED_NAME} ${flag}` : `${baseConfig}#${STYLED_NAME}`;
+        } catch (error) {
+          console.warn(`⚠️ Flag lookup failed for ${host}:`, error.message);
+          return `${baseConfig}#${STYLED_NAME}`;
         }
       })
     );
 
-    // جایگزینی لینک‌ها
-    let linkIndex = 0;
+‎    // جایگزینی با نتایج
+    let configIndex = 0;
     text = text.replace(vlessRegex, () => {
-      return processedLinks[linkIndex++];
+      const result = processedConfigs[configIndex++];
+      return result.status === 'fulfilled' ? result.value : matches[configIndex - 1][1] + `#${STYLED_NAME}`;
     });
 
-    console.log("All links processed successfully");
+    console.log("✅ All configs processed successfully");
 
-    res.setHeader("content-type", "text/plain; charset=utf-8");
-    res.setHeader("cache-control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("X-Content-Type-Options", "nosniff");
     res.send(text);
     
-  } catch (err) {
-    console.error("Server error:", err);
+  } catch (error) {
+    console.error("💥 Server error:", error);
+    
+    if (error.name === 'AbortError') {
+      return res
+        .status(408)
+        .type("text/plain; charset=utf-8")
+        .send("Request timeout");
+    }
+    
     res
       .status(500)
       .type("text/plain; charset=utf-8")
-      .send(`Server error: ${err.message}`);
+      .send(`Server error: ${error.message}`);
   }
 });
 
-// Health check endpoint
+// Health check با اطلاعات بیشتر
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({ 
+    status: "✅ Online",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    cacheSize: flagCache.size
+  });
 });
 
-// Root endpoint
+‎// صفحه اصلی
 app.get("/", (req, res) => {
-  res.type("text/plain; charset=utf-8").send("VLESS Proxy Server is running!\nUse /arista endpoint for VLESS configs.");
+  res.type("text/plain; charset=utf-8").send(
+    `🚀 VLESS Proxy Server - ONLINE\n\n` +
+    `📡 Endpoint: /ehsan\n` +
+    `💚 Health: /health\n` +
+    `⏰ Server Time: ${new Date().toISOString()}\n\n` +
+    `Made with 💥 by EHSAN`
+  );
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Proxy server running at http://localhost:${PORT}`);
-  console.log(`📡 VLESS endpoint: http://localhost:${PORT}/arista`);
-  console.log(`💚 Health check: http://localhost:${PORT}/health`);
+const server = app.listen(PORT, () => {
+  console.log(`\n🚀 EHSAN VLESS Proxy Server`);
+  console.log(`📡 Running on: http://localhost:${PORT}`);
+  console.log(`🎯 VLESS Endpoint: http://localhost:${PORT}/ehsan`);
+  console.log(`💚 Health Check: http://localhost:${PORT}/health`);
+  console.log(`⏰ Started: ${new Date().toISOString()}\n`);
 });
 
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('Received SIGTERM, shutting down gracefully...');
-  process.exit(0);
+// Graceful shutdown
+const gracefulShutdown = (signal) => {
+  console.log(`\n⚠️ Received ${signal}, shutting down gracefully...`);
+  server.close(() => {
+    console.log("✅ Server closed successfully");
+    flagCache.clear();
+    process.exit(0);
+  });
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle unhandled rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-process.on('SIGINT', () => {
-  console.log('Received SIGINT, shutting down gracefully...');
-  process.exit(0);
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error);
+  process.exit(1);
 });
