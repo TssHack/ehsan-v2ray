@@ -2,11 +2,11 @@
   "name": "ehsan-proxy",
   "version": "1.0.0",
   "description": "Proxy server to fetch upstream subscription and replace service name with EHSAN",
-  "main": "server.js",
+  "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "express": "^4.19.2",
