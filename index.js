@@ -25,7 +25,7 @@ const b64Decode = (b64) => {
 };
 const b64Encode = (txt) => Buffer.from(txt, "utf8").toString("base64");
 
-const buildLabel = (sourceText, desired = "NEXZO") => {
+const buildLabel = (sourceText, desired = "𝙀𝙃𝙎𝘼𝙉") => {
   const flags = (sourceText || "").match(FLAG_RE) || [];
   const prefix = flags.length ? flags.join(" ") + " " : "";
   return (prefix + desired).trim();
