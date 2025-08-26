@@ -31,7 +31,7 @@ const buildLabel = (sourceText, desired = "NEXZO") => {
   return (prefix + desired).trim();
 };
 
-function rewriteLine(line, desiredLabel = "NEXZO") {
+function rewriteLine(line, desiredLabel = "𝙀𝙃𝙎𝘼𝙉") {
   if (!line || !line.includes("://")) return line;
 
   const hashPos = line.indexOf("#");
@@ -70,7 +70,7 @@ function rewriteLine(line, desiredLabel = "NEXZO") {
 
 app.get("/", async (req, res) => {
   try {
-    const desiredLabel = (req.query.label || "NEXZO").toString();
+    const desiredLabel = (req.query.label || "𝙀𝙃𝙎𝘼𝙉").toString();
 
     const upstream = "https://dev1.irdevs.sbs/";
     const { data } = await axios.get(upstream, { responseType: "text" });
